@@ -5,11 +5,10 @@ from robosuite.controllers import load_composite_controller_config
 from envs.wrappers.timeout import Timeout
 
 
-# ---------------------------------------------------------------------------
 # Task registry
-# ---------------------------------------------------------------------------
 
-# Maps cfg.task strings → RoboSuite environment names
+# Maps cfg.task strings to RoboSuite environment names
+
 ROBOSUITE_TASKS = {
     "rs-lift":           "Lift",
     "rs-stack":          "Stack",
@@ -38,10 +37,7 @@ MAX_EPISODE_STEPS = {
     "rs-handover":      500,
 }
 
-
-# ---------------------------------------------------------------------------
 # Geodesic reward
-# ---------------------------------------------------------------------------
 
 def geodesic_reward(R1: np.ndarray, R2: np.ndarray) -> float:
     """Compute negative geodesic distance between two rotation matrices.
@@ -80,20 +76,10 @@ def quat_to_matrix(q: np.ndarray) -> np.ndarray:
         [2*(x*z - y*w),       2*(y*z + x*w),     1 - 2*(x*x + y*y)],
     ], dtype=np.float32)
 
-
-# ---------------------------------------------------------------------------
 # Wrapper
-# ---------------------------------------------------------------------------
 
 class RoboSuiteWrapper(gym.Env):
     """Wraps RoboSuite to match TD-MPC2's expected interface.
-
-    Key design decisions per the proposal:
-    - Observations are always flattened rotation matrices (vec(Rt) in R^9)
-      regardless of which action representation is being tested.
-    - Reward is the negative geodesic distance between the current
-      end-effector rotation and the target rotation (dense reward, Eq. 2).
-    - For two-arm tasks, we use robot0's end-effector as the primary arm.
     """
 
     def __init__(self, env, cfg):
@@ -137,10 +123,6 @@ class RoboSuiteWrapper(gym.Env):
     def _get_target_rotation(self, obs_dict: dict) -> np.ndarray:
         """Get the target rotation for this task.
 
-        For most tasks the target is the identity (upright orientation).
-        This can be made task-specific later once the team decides on
-        per-task targets.
-
         Args:
             obs_dict: Raw RoboSuite observation dict.
 
@@ -148,14 +130,10 @@ class RoboSuiteWrapper(gym.Env):
             (3, 3) target rotation matrix.
         """
         # Default: identity rotation (upright end-effector)
-        # TODO: replace with task-specific targets once confirmed by team
         return np.eye(3, dtype=np.float32)
 
     def _get_obs(self, obs_dict: dict) -> np.ndarray:
         """Extract observation as flattened rotation matrix (vec(Rt) in R^9).
-
-        Per the proposal: observations are always flattened rotation matrices
-        everywhere; only the action representation changes.
 
         Args:
             obs_dict: Raw RoboSuite observation dict.
@@ -193,10 +171,7 @@ class RoboSuiteWrapper(gym.Env):
     def unwrapped(self):
         return self.env
 
-
-# ---------------------------------------------------------------------------
 # make_env
-# ---------------------------------------------------------------------------
 
 def make_env(cfg):
     """Make a RoboSuite environment for TD-MPC2.
@@ -212,6 +187,7 @@ def make_env(cfg):
         "rs-peg-in-hole"  -> Two-Arm Peg-in-Hole (two Pandas, opposed)
         "rs-handover"     -> Two-Arm Handover    (two Pandas, opposed)
     """
+   
     if cfg.task not in ROBOSUITE_TASKS:
         raise ValueError(
             f"Unknown task: {cfg.task}. "
@@ -246,7 +222,7 @@ def make_env(cfg):
         has_offscreen_renderer=True,
         use_camera_obs=False,
         use_object_obs=True,
-        reward_shaping=False,   # we use geodesic reward instead
+        reward_shaping=False, 
         control_freq=20,
         ignore_done=False,
         hard_reset=False,
