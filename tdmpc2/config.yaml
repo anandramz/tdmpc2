@@ -6,6 +6,16 @@ task: dog-run
 obs: state
 episodic: false
 
+# rotation representation (SO3 benchmarks)
+# her_orient (her-reach-orient, her-pnp-orient): rot_type | rot_relative | rot_scale
+# robosuite (robosuite-lift, robosuite-stack, ...): rot_type | rot_obs_type | rot_control_mode | rot_step_len
+rot_type: tangent          # euler | tangent | quat | matrix | r6 (r6 robosuite only)
+rot_relative: false        # her_orient: delta rotation vs absolute
+rot_scale: null            # her_orient: optional delta-rotation scale (null = unscaled)
+rot_obs_type: matrix       # robosuite: fixed observation rotation representation
+rot_control_mode: rel      # robosuite: rel | abs | rel_scale
+rot_step_len: null         # robosuite: max rotation per step (null = wrapper default)
+
 # evaluation
 checkpoint: ???
 eval_episodes: 10

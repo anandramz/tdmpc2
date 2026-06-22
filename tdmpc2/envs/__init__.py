@@ -29,6 +29,14 @@ try:
 	from envs.mujoco import make_env as make_mujoco_env
 except:
 	make_mujoco_env = missing_dependencies
+try:
+	from envs.her_orient import make_env as make_her_orient_env
+except:
+	make_her_orient_env = missing_dependencies
+try:
+	from envs.robosuite_so3 import make_env as make_robosuite_so3_env
+except:
+	make_robosuite_so3_env = missing_dependencies
 
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -65,7 +73,7 @@ def make_env(cfg):
 
 	else:
 		env = None
-		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env, make_mujoco_env]:
+		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env, make_mujoco_env, make_her_orient_env, make_robosuite_so3_env]:
 			try:
 				env = fn(cfg)
 			except ValueError:
