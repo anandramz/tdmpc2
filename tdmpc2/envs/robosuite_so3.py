@@ -115,6 +115,13 @@ class RobosuiteTDMPCWrapper(gym.Wrapper):
         info["terminated"] = float(bool(terminated))
         return obs, float(reward), done, info
 
+    def render(self, *args, **kwargs):
+        # VideoRecorder calls env.render() with no args and expects an (H, W, 3)
+        # frame. robosuite renders via the offscreen renderer (enabled in make_env
+        # when save_video=true) and returns vertically-flipped frames.
+        frame = self._base_env.sim.render(width=384, height=384, camera_name="agentview")
+        return frame[::-1]
+
 
 def make_env(cfg):
     """Make a robosuite SO(3) environment for TD-MPC2.

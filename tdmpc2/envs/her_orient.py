@@ -109,7 +109,8 @@ def make_env(cfg):
             f"Supported: {sorted(t.value for t in SUPPORTED_ROT_TYPES)}."
         )
 
-    made = gym.make(HER_ORIENT_TASKS[cfg.task], disable_env_checker=True)
+    render_mode = "rgb_array" if cfg.get("save_video", False) else None
+    made = gym.make(HER_ORIENT_TASKS[cfg.task], disable_env_checker=True, render_mode=render_mode)
     max_steps = getattr(made.spec, "max_episode_steps", None) or 50
 
     env = RotationWrapper(
