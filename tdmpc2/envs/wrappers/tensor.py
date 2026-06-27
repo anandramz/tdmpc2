@@ -12,7 +12,10 @@ class TensorWrapper(gym.Wrapper):
 
 	def __init__(self, env):
 		super().__init__(env)
-	
+		# gymnasium >= 1.0 Wrapper no longer auto-forwards custom attributes, so
+		# expose max_episode_steps explicitly (read from the wrapped env).
+		self.max_episode_steps = getattr(env, 'max_episode_steps', None)
+
 	def rand_act(self):
 		return torch.from_numpy(self.action_space.sample().astype(np.float32))
 
