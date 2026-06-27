@@ -67,7 +67,10 @@ def make_env(cfg):
 	"""
 	Make an environment for TD-MPC2 experiments.
 	"""
-	gym.logger.set_level(40)
+	try:
+		gym.logger.set_level(40)  # gymnasium < 1.0
+	except AttributeError:
+		gym.logger.min_level = 40  # gymnasium >= 1.0
 	if cfg.multitask:
 		env = make_multitask_env(cfg)
 
