@@ -27,9 +27,10 @@ class OnlineTrainer(Trainer):
 
 	def eval(self):
 		"""Evaluate a TD-MPC2 agent."""
-		ep_rewards, ep_successes, ep_lengths = [], [], []
+		gamma = float(self.agent.discount)
+		ep_rewards, ep_disc_returns, ep_successes, ep_lengths = [], [], [], []
 		for i in range(self.cfg.eval_episodes):
-			obs, done, ep_reward, t = self.env.reset(), False, 0, 0
+			obs, done, ep_reward, disc_return, disc, t = self.env.reset(), False, 0, 0, 1.0, 0
 			if self.cfg.save_video:
 				self.logger.video.init(self.env, enabled=(i==0))
 			while not done:
@@ -37,16 +38,21 @@ class OnlineTrainer(Trainer):
 				action = self.agent.act(obs, t0=t==0, eval_mode=True)
 				obs, reward, done, info = self.env.step(action)
 				ep_reward += reward
+				disc_return += disc * reward
+				disc *= gamma
 				t += 1
 				if self.cfg.save_video:
 					self.logger.video.record(self.env)
 			ep_rewards.append(ep_reward)
+			ep_disc_returns.append(disc_return)
 			ep_successes.append(info['success'])
 			ep_lengths.append(t)
 			if self.cfg.save_video:
 				self.logger.video.save(self._step)
 		return dict(
 			episode_reward=np.nanmean(ep_rewards),
+			undiscounted_return=np.nanmean(ep_rewards),
+			discounted_return=np.nanmean(ep_disc_returns),
 			episode_success=np.nanmean(ep_successes),
 			episode_length= np.nanmean(ep_lengths),
 		)
@@ -91,8 +97,15 @@ class OnlineTrainer(Trainer):
 					if info['terminated'] and not self.cfg.episodic:
 						raise ValueError('Termination detected but you are not in episodic mode. ' \
 						'Set `episodic=true` to enable support for terminations.')
+					rewards = torch.cat([td['reward'] for td in self._tds[1:]])
+					gamma = float(self.agent.discount)
+					discounts = gamma ** torch.arange(len(rewards), dtype=rewards.dtype)
+					undiscounted_return = rewards.sum()
+					discounted_return = (discounts * rewards).sum()
 					train_metrics.update(
-						episode_reward=torch.tensor([td['reward'] for td in self._tds[1:]]).sum(),
+						episode_reward=undiscounted_return,
+						undiscounted_return=undiscounted_return,
+						discounted_return=discounted_return,
 						episode_success=info['success'],
 						episode_length=len(self._tds),
 						episode_terminated=info['terminated'])
