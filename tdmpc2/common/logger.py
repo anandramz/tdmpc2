@@ -149,6 +149,13 @@ class Logger:
 		return self._video
 
 	@property
+	def run_id(self):
+		"""Current wandb run id (None if wandb is disabled). Stored in checkpoints for resuming."""
+		if self._wandb is not None and getattr(self._wandb, 'run', None) is not None:
+			return self._wandb.run.id
+		return None
+
+	@property
 	def model_dir(self):
 		return self._model_dir
 

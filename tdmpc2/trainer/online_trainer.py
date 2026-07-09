@@ -1,3 +1,4 @@
+from pathlib import Path
 from time import time
 
 import numpy as np
@@ -14,6 +15,14 @@ class OnlineTrainer(Trainer):
 		self._step = 0
 		self._ep_idx = 0
 		self._start_time = time()
+		self._tds = None
+		self._resumed = False
+		# Agent updates start once `seed_steps` of experience have been collected.
+		# On resume the replay buffer is empty (it is not checkpointed), so we
+		# re-collect that much data before updating again.
+		self._update_start = self.cfg.seed_steps
+		if self.cfg.get('resume', False):
+			self.load_checkpoint()
 
 	def common_metrics(self):
 		"""Return a dictionary of current metrics."""
@@ -24,6 +33,48 @@ class OnlineTrainer(Trainer):
 			elapsed_time=elapsed_time,
 			steps_per_second=self._step / elapsed_time
 		)
+
+	def _checkpoint_path(self):
+		"""Path of the resume checkpoint. Point `checkpoint_dir` at Google Drive to survive disconnects."""
+		d = self.cfg.get('checkpoint_dir', None)
+		d = Path(d) if d else Path(self.cfg.work_dir) / 'checkpoints'
+		d.mkdir(parents=True, exist_ok=True)
+		return d / 'latest.pt'
+
+	def save_checkpoint(self):
+		"""Snapshot model, both optimizers, the reward scale, and progress (no replay buffer)."""
+		fp = self._checkpoint_path()
+		torch.save({
+			'model': self.agent.model.state_dict(),
+			'optim': self.agent.optim.state_dict(),
+			'pi_optim': self.agent.pi_optim.state_dict(),
+			'scale': self.agent.scale.state_dict(),
+			'step': self._step,
+			'ep_idx': self._ep_idx,
+			'wandb_run_id': getattr(self.logger, 'run_id', None),
+		}, fp)
+		print(f'Saved checkpoint at step {self._step:,} -> {fp}')
+
+	def load_checkpoint(self):
+		"""Restore from the latest checkpoint, if one exists."""
+		fp = self._checkpoint_path()
+		if not fp.exists():
+			print(f'No checkpoint found at {fp}; starting from scratch.')
+			return False
+		ckpt = torch.load(fp, map_location=torch.get_default_device(), weights_only=False)
+		self.agent.model.load_state_dict(ckpt['model'])
+		self.agent.optim.load_state_dict(ckpt['optim'])
+		self.agent.pi_optim.load_state_dict(ckpt['pi_optim'])
+		self.agent.scale.load_state_dict(ckpt['scale'])
+		self._step = int(ckpt['step'])
+		self._ep_idx = int(ckpt['ep_idx'])
+		self._resumed = True
+		self._update_start = self._step + self.cfg.seed_steps
+		print(f'Resumed from {fp} at step {self._step:,}')
+		run_id = ckpt.get('wandb_run_id')
+		if run_id:
+			print(f'To continue the same wandb run, set WANDB_RUN_ID={run_id} WANDB_RESUME=allow')
+		return True
 
 	def eval(self):
 		"""Evaluate a TD-MPC2 agent."""
@@ -93,7 +144,7 @@ class OnlineTrainer(Trainer):
 					self.logger.log(eval_metrics, 'eval')
 					eval_next = False
 
-				if self._step > 0:
+				if self._step > 0 and self._tds is not None:
 					if info['terminated'] and not self.cfg.episodic:
 						raise ValueError('Termination detected but you are not in episodic mode. ' \
 						'Set `episodic=true` to enable support for terminations.')
@@ -125,8 +176,8 @@ class OnlineTrainer(Trainer):
 			self._tds.append(self.to_td(obs, action, reward, info['terminated']))
 
 			# Update agent
-			if self._step >= self.cfg.seed_steps:
-				if self._step == self.cfg.seed_steps:
+			if self._step >= self._update_start:
+				if self._step == self._update_start and not self._resumed:
 					num_updates = self.cfg.seed_steps
 					print('Pretraining agent on seed data...')
 				else:
@@ -137,4 +188,9 @@ class OnlineTrainer(Trainer):
 
 			self._step += 1
 
+			# Periodic checkpoint so an interrupted run can resume
+			if self.cfg.get('checkpoint_freq', 0) and self._step % self.cfg.checkpoint_freq == 0:
+				self.save_checkpoint()
+
+		self.save_checkpoint()
 		self.logger.finish(self.agent)

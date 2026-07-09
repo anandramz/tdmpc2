@@ -21,6 +21,11 @@ checkpoint: ???
 eval_episodes: 10
 eval_freq: 50000
 
+# checkpointing (resume an interrupted run; replay buffer is NOT saved)
+checkpoint_freq: 0       # save every N steps (0 = disabled)
+checkpoint_dir: null     # e.g. /content/drive/MyDrive/tdmpc2_ckpt (null = work_dir/checkpoints)
+resume: false            # resume from latest.pt in checkpoint_dir if it exists
+
 # training
 steps: 10_000_000
 batch_size: 256
