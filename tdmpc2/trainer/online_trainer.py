@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from time import time
 
@@ -38,13 +39,21 @@ class OnlineTrainer(Trainer):
 		"""Path of the resume checkpoint. Point `checkpoint_dir` at Google Drive to survive disconnects."""
 		d = self.cfg.get('checkpoint_dir', None)
 		d = Path(d) if d else Path(self.cfg.work_dir) / 'checkpoints'
-		d.mkdir(parents=True, exist_ok=True)
 		return d / 'latest.pt'
 
+	def _local_checkpoint_path(self):
+		"""Fallback path on local disk, used if the primary (e.g. Drive) write fails."""
+		return Path(self.cfg.work_dir) / 'checkpoints' / 'latest.pt'
+
 	def save_checkpoint(self):
-		"""Snapshot model, both optimizers, the reward scale, and progress (no replay buffer)."""
-		fp = self._checkpoint_path()
-		torch.save({
+		"""Snapshot model, both optimizers, the reward scale, and progress (no replay buffer).
+
+		Writes atomically (tmp file + os.replace) so an interrupted write cannot leave a
+		corrupt `latest.pt`, and never raises: if the primary destination fails (e.g. a
+		stale Google Drive mount midway through a long run) we fall back to local disk
+		rather than killing the training run.
+		"""
+		state = {
 			'model': self.agent.model.state_dict(),
 			'optim': self.agent.optim.state_dict(),
 			'pi_optim': self.agent.pi_optim.state_dict(),
@@ -52,12 +61,41 @@ class OnlineTrainer(Trainer):
 			'step': self._step,
 			'ep_idx': self._ep_idx,
 			'wandb_run_id': getattr(self.logger, 'run_id', None),
-		}, fp)
-		print(f'Saved checkpoint at step {self._step:,} -> {fp}')
+		}
+		paths = [self._checkpoint_path()]
+		if self._local_checkpoint_path() != paths[0]:
+			paths.append(self._local_checkpoint_path())
+		saved = None
+		for fp in paths:
+			try:
+				fp.parent.mkdir(parents=True, exist_ok=True)
+				tmp = fp.with_suffix('.tmp')
+				torch.save(state, tmp)
+				os.replace(tmp, fp)
+				print(f'Saved checkpoint at step {self._step:,} -> {fp}')
+				saved = fp
+				break
+			except Exception as e:
+				print(f'Warning: could not write checkpoint to {fp}: {e}')
+		if saved is None:
+			print('Warning: checkpoint was not saved at this step; training continues.')
+			return
+		# Mirror the checkpoint to wandb as an artifact so it survives the VM
+		# (fail-soft: a network hiccup must not kill training).
+		if self.cfg.get('checkpoint_wandb', True):
+			self.logger.log_checkpoint(saved)
 
 	def load_checkpoint(self):
-		"""Restore from the latest checkpoint, if one exists."""
+		"""Restore from the latest checkpoint, if one exists.
+
+		Looks for a local file first; on a fresh VM (no local file) falls back to
+		downloading the latest wandb checkpoint artifact for this run config.
+		"""
 		fp = self._checkpoint_path()
+		if not fp.exists() and self.cfg.get('checkpoint_wandb', True):
+			downloaded = self.logger.download_checkpoint(fp.parent)
+			if downloaded is not None:
+				fp = downloaded
 		if not fp.exists():
 			print(f'No checkpoint found at {fp}; starting from scratch.')
 			return False

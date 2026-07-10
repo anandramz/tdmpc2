@@ -2,6 +2,7 @@ import dataclasses
 import os
 import datetime
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -154,6 +155,39 @@ class Logger:
 		if self._wandb is not None and getattr(self._wandb, 'run', None) is not None:
 			return self._wandb.run.id
 		return None
+
+	@property
+	def checkpoint_artifact_name(self):
+		"""Name of the wandb artifact used for resume checkpoints of this run config."""
+		return f'{self._group}-{self._seed}-checkpoint'
+
+	def log_checkpoint(self, fp):
+		"""Upload a resume checkpoint as a wandb artifact (alias 'latest'). Never raises."""
+		if self._wandb is None:
+			return
+		try:
+			artifact = self._wandb.Artifact(self.checkpoint_artifact_name, type='checkpoint')
+			artifact.add_file(str(fp))
+			self._wandb.log_artifact(artifact, aliases=['latest'])
+			print(f'Uploaded checkpoint artifact {self.checkpoint_artifact_name}:latest')
+		except Exception as e:
+			print(colored(f'Warning: failed to upload checkpoint artifact: {e}', 'red'))
+
+	def download_checkpoint(self, dest_dir):
+		"""Download the latest resume-checkpoint artifact. Returns the .pt path or None."""
+		if self.project == 'none' or self.entity == 'none':
+			return None
+		try:
+			import wandb
+			api = wandb.Api()
+			name = f'{self.entity}/{self.project}/{self.checkpoint_artifact_name}:latest'
+			artifact = api.artifact(name, type='checkpoint')
+			root = artifact.download(root=str(dest_dir))
+			fp = Path(root) / 'latest.pt'
+			return fp if fp.exists() else None
+		except Exception as e:
+			print(colored(f'No wandb checkpoint artifact available ({e})', 'blue'))
+			return None
 
 	@property
 	def model_dir(self):

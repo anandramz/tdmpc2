@@ -23,8 +23,9 @@ eval_freq: 50000
 
 # checkpointing (resume an interrupted run; replay buffer is NOT saved)
 checkpoint_freq: 0       # save every N steps (0 = disabled)
-checkpoint_dir: null     # e.g. /content/drive/MyDrive/tdmpc2_ckpt (null = work_dir/checkpoints)
-resume: false            # resume from latest.pt in checkpoint_dir if it exists
+checkpoint_dir: null     # optional local/Drive dir (null = work_dir/checkpoints)
+checkpoint_wandb: true   # mirror checkpoints to wandb as artifact; resume can download it
+resume: false            # resume from latest checkpoint (local file, else wandb artifact)
 
 # training
 steps: 10_000_000
