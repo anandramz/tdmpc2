@@ -1,0 +1,12 @@
+# Keep the image build context small. The SO3 tasks need benchmarks/,
+# rotations/, and the inner tdmpc2/ package; the rest is not needed at runtime.
+.git
+**/__pycache__
+**/*.pyc
+logs
+results
+assets
+datasets
+*.mp4
+*.pt
+nautilus

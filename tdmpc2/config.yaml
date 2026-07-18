@@ -9,12 +9,16 @@ episodic: false
 # rotation representation (SO3 benchmarks)
 # her_orient (her-reach-orient, her-pnp-orient): rot_type | rot_relative | rot_scale
 # robosuite (robosuite-lift, robosuite-stack, ...): rot_type | rot_obs_type | rot_control_mode | rot_step_len
-rot_type: tangent          # euler | tangent | quat | matrix | r6 (r6 robosuite only)
+# rot-orient (idealized): rot_type | rot_obs_type | rot_control_mode | rot_step_len | rot_reward_type | rot_tol | rot_max_steps
+rot_type: tangent          # euler | tangent | quat | matrix | r6 (r6 robosuite/rot-orient only)
 rot_relative: false        # her_orient: delta rotation vs absolute
 rot_scale: null            # her_orient: optional delta-rotation scale (null = unscaled)
-rot_obs_type: matrix       # robosuite: fixed observation rotation representation
-rot_control_mode: rel      # robosuite: rel | abs | rel_scale
-rot_step_len: null         # robosuite: max rotation per step (null = wrapper default)
+rot_obs_type: matrix       # robosuite/rot-orient: fixed observation rotation representation
+rot_control_mode: rel      # robosuite/rot-orient: rel | abs | rel_scale
+rot_step_len: null         # robosuite/rot-orient: max rotation per step (null = env default)
+rot_reward_type: sparse    # rot-orient: sparse | dense
+rot_tol: 0.1               # rot-orient: success/reward angle tolerance (radians)
+rot_max_steps: 50          # rot-orient: episode horizon
 
 # evaluation
 checkpoint: ???

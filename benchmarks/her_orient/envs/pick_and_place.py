@@ -49,7 +49,7 @@ class PickAndPlaceOrient(MujocoEnv):
         )
         # Helper variables
         self._robot_origin = self.data.site("fr3_origin").xpos.copy()
-        self._goal = np.concat([np.zeros(3), np.eye(3).flatten()], axis=-1).astype(np.float32)
+        self._goal = np.concatenate([np.zeros(3), np.eye(3).flatten()], axis=-1).astype(np.float32)
         self._goal_pos_range = np.array([[-0.15, -0.15, 0.0], [0.15, 0.15, 0.45]], dtype=np.float32)
         self._goal_rot_range = np.pi / 2
         self._goal_pos_tol = 0.05
@@ -167,12 +167,12 @@ class PickAndPlaceOrient(MujocoEnv):
             ],
             dtype=np.float32,
         )
-        cube_pose = np.concat([cube_pos, cube_rot.flatten()], axis=-1).astype(np.float32)
+        cube_pose = np.concatenate([cube_pos, cube_rot.flatten()], axis=-1).astype(np.float32)
         return {"observation": obs, "desired_goal": self._goal, "achieved_goal": cube_pose}
 
     def reward(self) -> float:
         """Return the reward of the robot."""
-        pose = np.concat([self.cube_pos, self.cube_rot.flatten()], axis=-1).astype(np.float32)
+        pose = np.concatenate([self.cube_pos, self.cube_rot.flatten()], axis=-1).astype(np.float32)
         return self.compute_reward(pose, self._goal)
 
     def terminated(self) -> bool:
@@ -239,11 +239,11 @@ class PickAndPlaceOrient(MujocoEnv):
             random_rot = R.random() ** (self._goal_rot_range / np.pi)
             assert random_rot.magnitude() <= self._goal_rot_range + 1e-6  # Sanity check
             rot = (R.from_quat(self.data.qpos[-4:]) * random_rot).as_matrix().flatten()
-            return np.concat([pos, rot], axis=-1).astype(np.float32)
+            return np.concatenate([pos, rot], axis=-1).astype(np.float32)
         # Otherwise sample a goal on the table
         pos[2] = 0.025
         rot = random_rot_face_down(self.np_random).as_matrix().flatten()
-        return np.concat([pos, rot], axis=-1).astype(np.float32)
+        return np.concatenate([pos, rot], axis=-1).astype(np.float32)
 
     def _sample_cube(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Sample a cube position and orientation in the robot frame."""

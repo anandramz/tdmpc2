@@ -1,0 +1,52 @@
+##############################################################
+# Dockerfile for running TD-MPC2 as a SageMaker training job. #
+# ---------------------------------------------------------- #
+# Unlike docker/Dockerfile (which expects the code to be      #
+# volume-mounted and a human to run commands interactively),  #
+# this image bakes the repo in and installs an executable     #
+# `train` so SageMaker's `docker run <image> train` starts    #
+# training unattended. See sagemaker/README.md.               #
+# ---------------------------------------------------------- #
+# Build (context MUST be the repo root, not docker/):         #
+#   docker build -f docker/Dockerfile.sagemaker \             #
+#     -t <acct>.dkr.ecr.<region>.amazonaws.com/tdmpc2:sm .    #
+##############################################################
+
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System packages (MuJoCo / EGL / rendering), mirrored from docker/Dockerfile.
+RUN apt-get -y update && \
+    apt-get install -y --no-install-recommends build-essential git nano rsync vim tree curl wget \
+    swig ffmpeg unzip htop tmux xvfb ca-certificates bash-completion libjpeg-dev libpng-dev \
+    libssl-dev libcurl4-openssl-dev libopenmpi-dev zlib1g-dev qtbase5-dev qtdeclarative5-dev \
+    libglib2.0-0 libglu1-mesa-dev libgl1-mesa-dev libvulkan1 libgl1-mesa-glx libosmesa6 \
+    libosmesa6-dev libglew-dev mesa-utils && \
+    apt-get clean && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Python dependencies (same environment as docker/environment.yaml).
+COPY docker/nvidia_icd.json /usr/share/vulkan/icd.d/nvidia_icd.json
+COPY docker/environment.yaml /root/environment.yaml
+RUN conda update -n base -y conda && \
+    conda env update -n base -f /root/environment.yaml && \
+    rm /root/environment.yaml && \
+    conda clean -ya && \
+    pip cache purge
+
+# Bake the repo into the image. `rotations/` and `benchmarks/` sit at the repo
+# root and are imported by the env modules (they add the repo root to sys.path),
+# so the whole tree must be present -- not just the inner tdmpc2/ package.
+ENV TDMPC2_REPO=/workspace/tdmpc2
+COPY . ${TDMPC2_REPO}
+
+# Install the SageMaker entry point as the executable `train` on PATH, so that
+# `docker run <image> train` runs it. It reads /opt/ml/input/config/
+# hyperparameters.json and launches the unmodified train.py under Hydra.
+RUN cp ${TDMPC2_REPO}/sagemaker/train_entry.py /usr/local/bin/train && \
+    chmod +x /usr/local/bin/train
+
+# Headless GL for MuJoCo on the GPU box.
+ENV MUJOCO_GL=egl
+WORKDIR ${TDMPC2_REPO}

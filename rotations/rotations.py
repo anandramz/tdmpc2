@@ -204,6 +204,11 @@ def euler2quat(euler: torch.Tensor) -> torch.Tensor:
 
 @singledispatch
 def rot_mat_svd(x: Any) -> Any:
+    # Under jax.jit the argument is a tracer (e.g. DynamicJaxprTracer), which
+    # singledispatch does not resolve to the `Array` branch by concrete type but
+    # which still satisfies isinstance(x, jax.Array). Route it to the jax impl.
+    if isinstance(x, Array):
+        return rot_mat_svd.dispatch(Array)(x)
     raise NotImplementedError(f"rot_mat_svd not implemented for type {type(x)}")
 
 
@@ -279,6 +284,9 @@ def _(x: torch.Tensor) -> torch.Tensor:
 
 @singledispatch
 def r6_2mat(x: Any) -> Any:
+    # See rot_mat_svd: route jax tracers (isinstance jax.Array) to the jax impl.
+    if isinstance(x, Array):
+        return r6_2mat.dispatch(Array)(x)
     raise NotImplementedError(f"r6_2mat not implemented for type {type(x)}")
 
 

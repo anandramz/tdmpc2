@@ -37,6 +37,10 @@ try:
 	from envs.robosuite_so3 import make_env as make_robosuite_so3_env
 except:
 	make_robosuite_so3_env = missing_dependencies
+try:
+	from envs.rot_ideal import make_env as make_rot_ideal_env
+except:
+	make_rot_ideal_env = missing_dependencies
 
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
@@ -76,7 +80,7 @@ def make_env(cfg):
 
 	else:
 		env = None
-		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env, make_mujoco_env, make_her_orient_env, make_robosuite_so3_env]:
+		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env, make_mujoco_env, make_her_orient_env, make_robosuite_so3_env, make_rot_ideal_env]:
 			try:
 				env = fn(cfg)
 			except ValueError:

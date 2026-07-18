@@ -45,7 +45,7 @@ class ReachOrient(MujocoEnv):
         )
         # Helper variables
         self._robot_origin = self.data.site("fr3_origin").xpos.copy()
-        self._goal = np.concat([np.zeros(3), np.eye(3).flatten()], axis=-1).astype(np.float32)
+        self._goal = np.concatenate([np.zeros(3), np.eye(3).flatten()], axis=-1).astype(np.float32)
         self._goal_pos_range = np.ones(3) * 0.15
         self._goal_rot_range = np.pi / 2
         self._goal_pos_tol = 0.05
@@ -113,12 +113,12 @@ class ReachOrient(MujocoEnv):
             self.model, self.data, mujoco.mjtObj.mjOBJ_SITE, site_id, eef_vel, 0
         )
         obs = np.concatenate([self.eef_pos, self.eef_rot.flatten(), eef_vel], dtype=np.float32)
-        pose = np.concat([self.eef_pos, self.eef_rot.flatten()], axis=-1).astype(np.float32)
+        pose = np.concatenate([self.eef_pos, self.eef_rot.flatten()], axis=-1).astype(np.float32)
         return {"observation": obs, "desired_goal": self._goal, "achieved_goal": pose}
 
     def reward(self) -> float:
         """Return the reward of the robot."""
-        pose = np.concat([self.eef_pos, self.eef_rot.flatten()], axis=-1).astype(np.float32)
+        pose = np.concatenate([self.eef_pos, self.eef_rot.flatten()], axis=-1).astype(np.float32)
         return self.compute_reward(pose, self._goal)
 
     def terminated(self) -> bool:
@@ -171,7 +171,7 @@ class ReachOrient(MujocoEnv):
         random_rot = R.random() ** (self._goal_rot_range / np.pi)
         assert random_rot.magnitude() <= self._goal_rot_range + 1e-6  # Sanity check
         rot = (R.from_matrix(self.eef_rot) * random_rot).as_matrix().flatten()
-        return np.concat([pos, rot], axis=-1).astype(np.float32)
+        return np.concatenate([pos, rot], axis=-1).astype(np.float32)
 
 
 class Reach(ReachOrient):
